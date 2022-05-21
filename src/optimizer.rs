@@ -113,9 +113,27 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
                         }
                     }
                 }
-                inst @ Instruction::AddVector { vector, .. } => {
+                inst @ Instruction::AddVector { stride, vector } => {
                     if vector != [0; 4] {
-                        buffer.push(inst);
+                        if stride != 0 {
+                            buffer.push(inst);
+                        } else {
+                            match vector {
+                                [amount, 0, 0, 0] => buffer.push(Instruction::Add(amount)),
+                                [0, amount, 0, 0] => {
+                                    buffer.push(Instruction::AddRelative { offset: 1, amount });
+                                }
+                                [0, 0, amount, 0] => {
+                                    buffer.push(Instruction::AddRelative { offset: 2, amount });
+                                }
+                                [0, 0, 0, amount] => {
+                                    buffer.push(Instruction::AddRelative { offset: 3, amount });
+                                }
+                                _ => buffer.push(inst),
+                            }
+                        }
+                    } else if stride != 0 {
+                        buffer.push(Instruction::Move(stride));
                     }
                 }
                 inst @ Instruction::MoveRightToZero { .. }
