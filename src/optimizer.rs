@@ -105,10 +105,12 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
                     buffer.push(Instruction::SetAbsolute(final_value));
                 }
                 inst @ Instruction::AddRelative { offset, amount } => {
-                    if offset != 0 {
-                        buffer.push(inst);
-                    } else {
-                        buffer.push(Instruction::Add(amount));
+                    if amount != 0 {
+                        if offset != 0 {
+                            buffer.push(inst);
+                        } else {
+                            buffer.push(Instruction::Add(amount));
+                        }
                     }
                 }
                 inst @ Instruction::AddVector { vector, .. } => {
@@ -162,10 +164,13 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     buffer.push(Instruction::AddVector { stride, vector });
                 }
             }
-            [Instruction::Add(amount), Instruction::SetAbsolute(value)]
-            | [Instruction::SetAbsolute(value), Instruction::Add(amount)] => {
+            [Instruction::Add(_), Instruction::SetAbsolute(value)] => {
                 matched = true;
-                buffer.push(Instruction::SetAbsolute(*amount + *value));
+                buffer.push(Instruction::SetAbsolute(*value));
+            }
+            [Instruction::SetAbsolute(value), Instruction::Add(amount)] => {
+                matched = true;
+                buffer.push(Instruction::SetAbsolute(value.wrapping_add(*amount)));
             }
             [Instruction::Add(a), Instruction::AddRelative { offset, amount: b }]
             | [Instruction::AddRelative { offset, amount: b }, Instruction::Add(a)] => match offset
