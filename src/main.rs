@@ -22,7 +22,7 @@ fn main() {
     optimizer::optimize(&mut instructions);
 
     lister::create_listing(&instructions, "numwarp.lst").unwrap();
-    compiler::compile_to_c(&instructions, "numwarp.c").unwrap();
+    //compiler::compile_to_c(&instructions, "numwarp.c").unwrap();
 
     let start_time = std::time::Instant::now();
     interpreter::interpret(&instructions, &input);

@@ -21,7 +21,8 @@ pub fn optimize(instructions: &mut Vec<Instruction>) {
     while instructions.len() < previous_instruction_count {
         previous_instruction_count = instructions.len();
 
-        substitute_patterns_1(instructions, &mut buffer);
+        squash_and_clean(instructions, &mut buffer);
+
         substitute_patterns_4(instructions, &mut buffer);
         substitute_patterns_3(instructions, &mut buffer);
         substitute_patterns_2(instructions, &mut buffer);
@@ -38,7 +39,7 @@ pub fn optimize(instructions: &mut Vec<Instruction>) {
     fix_loops(instructions);
 }
 
-fn substitute_patterns_1(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instruction>) {
+fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instruction>) {
     {
         let mut iterator = instructions.drain(..).peekable();
 
