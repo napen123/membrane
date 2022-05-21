@@ -10,6 +10,7 @@ use crate::Instruction;
 
 // 318
 // 311
+// 307
 pub fn optimize(instructions: &mut Vec<Instruction>) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
@@ -328,17 +329,28 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
             [Instruction::Move(move1), Instruction::Add(amount), Instruction::Move(move2)] => {
                 let move1 = *move1;
                 let move2 = *move2;
+                let amount = *amount;
 
-                if move1 == -move2 {
+                if move1.signum() == -move2.signum() {
                     matched = true;
-                    buffer.push(Instruction::AddRelative {
-                        offset: move1,
-                        amount: *amount,
-                    });
+
+                    if move1 == -move2 {
+                        buffer.push(Instruction::AddRelative {
+                            offset: move1,
+                            amount,
+                        });
+                    } else {
+                        buffer.extend_from_slice(&[
+                            Instruction::AddRelative {
+                                offset: move1,
+                                amount,
+                            },
+                            Instruction::Move(move1 + move2),
+                        ]);
+                    }
                 }
             }
-            [Instruction::JumpIfZero { .. }, Instruction::Add(1), Instruction::JumpIfNotZero { .. }]
-            | [Instruction::JumpIfZero { .. }, Instruction::Add(-1), Instruction::JumpIfNotZero { .. }] =>
+            [Instruction::JumpIfZero { .. }, Instruction::Add(1 | -1), Instruction::JumpIfNotZero { .. }] =>
             {
                 matched = true;
                 buffer.push(Instruction::SetAbsolute(0));
