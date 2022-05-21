@@ -216,6 +216,11 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 matched = true;
                 buffer.push(Instruction::SetAbsolute(value.wrapping_add(*amount)));
             }
+            [Instruction::SetAbsolute(0), Instruction::MoveRightToZero { .. } | Instruction::MoveLeftToZero { .. }] =>
+            {
+                matched = true;
+                buffer.push(Instruction::SetAbsolute(0));
+            }
             [Instruction::AddRelative { offset, amount }, Instruction::Move(stride)] => {
                 let offset = *offset;
 
