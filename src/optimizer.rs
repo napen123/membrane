@@ -266,6 +266,11 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector: *vector,
                 });
             }
+            [first @ Instruction::MoveRightToZero { .. }
+            | first @ Instruction::MoveLeftToZero { .. }, Instruction::Add(amount)] => {
+                matched = true;
+                buffer.extend_from_slice(&[*first, Instruction::SetAbsolute(*amount)]);
+            }
             _ => {}
         }
 
