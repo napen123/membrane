@@ -9,6 +9,7 @@ use std::mem;
 use crate::Instruction;
 
 // 2780
+// 2736
 pub fn optimize(instructions: &mut Vec<Instruction>) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
@@ -329,23 +330,21 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 let move2 = *move2;
                 let amount = *amount;
 
-                if move1.signum() == -move2.signum() {
-                    matched = true;
+                matched = true;
 
-                    if move1 == -move2 {
-                        buffer.push(Instruction::AddRelative {
+                if move1 == -move2 {
+                    buffer.push(Instruction::AddRelative {
+                        offset: move1,
+                        amount,
+                    });
+                } else {
+                    buffer.extend_from_slice(&[
+                        Instruction::AddRelative {
                             offset: move1,
                             amount,
-                        });
-                    } else {
-                        buffer.extend_from_slice(&[
-                            Instruction::AddRelative {
-                                offset: move1,
-                                amount,
-                            },
-                            Instruction::Move(move1 + move2),
-                        ]);
-                    }
+                        },
+                        Instruction::Move(move1 + move2),
+                    ]);
                 }
             }
             [Instruction::JumpIfZero { .. }, Instruction::Add(1 | -1), Instruction::JumpIfNotZero { .. }] =>
