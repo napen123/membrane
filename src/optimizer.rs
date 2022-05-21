@@ -187,31 +187,19 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 }
             }
             [Instruction::Add(a), Instruction::AddRelative { offset, amount: b }]
-            | [Instruction::AddRelative { offset, amount: b }, Instruction::Add(a)] => match offset
-            {
-                1 => {
+            | [Instruction::AddRelative { offset, amount: b }, Instruction::Add(a)] => {
+                let offset = *offset;
+
+                if offset > 0 && offset < 4 {
                     matched = true;
-                    buffer.push(Instruction::AddVector {
-                        stride: 0,
-                        vector: [*a, *b, 0, 0],
-                    });
+
+                    let mut vector = [0; 4];
+                    vector[0] = *a;
+                    vector[offset as usize] = *b;
+
+                    buffer.push(Instruction::AddVector { stride: 0, vector });
                 }
-                2 => {
-                    matched = true;
-                    buffer.push(Instruction::AddVector {
-                        stride: 0,
-                        vector: [*a, 0, *b, 0],
-                    });
-                }
-                3 => {
-                    matched = true;
-                    buffer.push(Instruction::AddVector {
-                        stride: 0,
-                        vector: [*a, 0, 0, *b],
-                    });
-                }
-                _ => {}
-            },
+            }
             [Instruction::Add(amount), Instruction::AddVector { stride, vector }] => {
                 matched = true;
                 buffer.push(Instruction::AddVector {
