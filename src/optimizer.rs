@@ -522,6 +522,25 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     });
                 }
             }
+            [Instruction::AddRelative {
+                offset: offset1,
+                amount: amount1,
+            }, inst1 @ _, inst2 @ _, Instruction::AddRelative {
+                offset: offset2,
+                amount: amount2,
+            }] => {
+                if *offset1 == *offset2 && inst1.is_stable() && inst2.is_stable() {
+                    matched = true;
+                    buffer.extend_from_slice(&[
+                        Instruction::AddRelative {
+                            offset: *offset1,
+                            amount: *amount1 + *amount2,
+                        },
+                        *inst1,
+                        *inst2,
+                    ]);
+                }
+            }
             _ => {
                 matched = false;
             }
