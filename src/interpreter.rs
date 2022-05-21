@@ -98,7 +98,7 @@ pub fn interpret(instructions: &[Instruction], input: &[u8]) {
                     tape[index] = *amount as u8;
                 }
             }
-            Instruction::AddVector { stride, vector } => {
+            Instruction::AddVectorMove { stride, vector } => {
                 if let Some(cell) = tape.get_mut(head..head + 4) {
                     cell[0] = (cell[0] as i8).wrapping_add(vector[0]) as u8;
                     cell[1] = (cell[1] as i8).wrapping_add(vector[1]) as u8;

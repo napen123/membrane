@@ -114,7 +114,7 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
                         }
                     }
                 }
-                inst @ Instruction::AddVector { stride, vector } => {
+                inst @ Instruction::AddVectorMove { stride, vector } => {
                     if vector != [0; 4] {
                         if stride != 0 {
                             buffer.push(inst);
@@ -184,7 +184,7 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     let mut vector = [0; 4];
                     vector[stride as usize] = *amount;
 
-                    buffer.push(Instruction::AddVector { stride, vector });
+                    buffer.push(Instruction::AddVectorMove { stride, vector });
                 }
             }
             [Instruction::Add(a), Instruction::AddRelative { offset, amount: b }]
@@ -198,12 +198,12 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector[0] = *a;
                     vector[offset as usize] = *b;
 
-                    buffer.push(Instruction::AddVector { stride: 0, vector });
+                    buffer.push(Instruction::AddVectorMove { stride: 0, vector });
                 }
             }
-            [Instruction::Add(amount), Instruction::AddVector { stride, vector }] => {
+            [Instruction::Add(amount), Instruction::AddVectorMove { stride, vector }] => {
                 matched = true;
-                buffer.push(Instruction::AddVector {
+                buffer.push(Instruction::AddVectorMove {
                     stride: *stride,
                     vector: [
                         vector[0].wrapping_add(*amount),
@@ -226,13 +226,13 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     let mut vector = [0; 4];
                     vector[offset as usize] = *amount;
 
-                    buffer.push(Instruction::AddVector {
+                    buffer.push(Instruction::AddVectorMove {
                         stride: *stride,
                         vector,
                     });
                 }
             }
-            [Instruction::AddRelative { offset, amount }, Instruction::AddVector { stride, vector }] =>
+            [Instruction::AddRelative { offset, amount }, Instruction::AddVectorMove { stride, vector }] =>
             {
                 let offset = *offset;
 
@@ -242,13 +242,13 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     let mut vector = *vector;
                     vector[offset as usize] = vector[offset as usize].wrapping_add(*amount);
 
-                    buffer.push(Instruction::AddVector {
+                    buffer.push(Instruction::AddVectorMove {
                         stride: *stride,
                         vector,
                     });
                 }
             }
-            [Instruction::AddVector { stride, vector }, Instruction::Add(amount)] => {
+            [Instruction::AddVectorMove { stride, vector }, Instruction::Add(amount)] => {
                 let stride = *stride;
 
                 if stride >= 0 && stride < 4 {
@@ -257,12 +257,12 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     let mut vector = *vector;
                     vector[stride as usize] = vector[stride as usize].wrapping_add(*amount);
 
-                    buffer.push(Instruction::AddVector { stride, vector });
+                    buffer.push(Instruction::AddVectorMove { stride, vector });
                 }
             }
-            [Instruction::AddVector { stride, vector }, Instruction::Move(amount)] => {
+            [Instruction::AddVectorMove { stride, vector }, Instruction::Move(amount)] => {
                 matched = true;
-                buffer.push(Instruction::AddVector {
+                buffer.push(Instruction::AddVectorMove {
                     stride: *stride + *amount,
                     vector: *vector,
                 });
@@ -312,7 +312,7 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector[0] = *a;
                     vector[stride as usize] = *b;
 
-                    buffer.push(Instruction::AddVector { stride, vector });
+                    buffer.push(Instruction::AddVectorMove { stride, vector });
                 } else if stride < 0 && stride > -4 {
                     matched = true;
 
@@ -322,7 +322,7 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
 
                     buffer.extend_from_slice(&[
                         Instruction::Move(stride),
-                        Instruction::AddVector { stride: 0, vector },
+                        Instruction::AddVectorMove { stride: 0, vector },
                     ]);
                 }
             }
@@ -417,7 +417,7 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector[0] = *a;
                     vector[move1 as usize] = *b;
 
-                    buffer.push(Instruction::AddVector {
+                    buffer.push(Instruction::AddVectorMove {
                         stride: total_move,
                         vector,
                     });
@@ -430,7 +430,7 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
 
                     buffer.extend_from_slice(&[
                         Instruction::Move(total_move),
-                        Instruction::AddVector { stride: 0, vector },
+                        Instruction::AddVectorMove { stride: 0, vector },
                     ]);
                 }
             }
@@ -447,7 +447,7 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector[move1 as usize] = *a;
                     vector[total_move as usize] = *b;
 
-                    buffer.push(Instruction::AddVector {
+                    buffer.push(Instruction::AddVectorMove {
                         stride: move1 + move2,
                         vector,
                     });
@@ -460,7 +460,7 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
 
                     buffer.extend_from_slice(&[
                         Instruction::Move(total_move),
-                        Instruction::AddVector { stride: 0, vector },
+                        Instruction::AddVectorMove { stride: 0, vector },
                     ]);
                 }
             }

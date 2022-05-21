@@ -65,7 +65,7 @@ pub fn compile_to_c(instructions: &[Instruction], filename: &str) -> IOResult<()
             Instruction::AddRelative { offset, amount } => {
                 writeln!(writer, "    tape[head + {}] += {};", offset, amount)?;
             }
-            Instruction::AddVector { stride, vector } => {
+            Instruction::AddVectorMove { stride, vector } => {
                 writeln!(writer, "    tape[head] += {};", vector[0])?;
                 writeln!(writer, "    tape[head + 1] += {};", vector[1])?;
                 writeln!(writer, "    tape[head + 2] += {};", vector[2])?;

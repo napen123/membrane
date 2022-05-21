@@ -18,7 +18,7 @@ pub enum Instruction {
 
     SetAbsolute(i8),
     AddRelative { offset: isize, amount: i8 },
-    AddVector { stride: isize, vector: [i8; 4] },
+    AddVectorMove { stride: isize, vector: [i8; 4] },
     MoveRightToZero { increment: i8, stride: usize },
     MoveLeftToZero { increment: i8, stride: usize },
 }
@@ -43,8 +43,8 @@ impl fmt::Display for Instruction {
             Self::AddRelative { offset, amount } => {
                 write!(f, "{:16}{:+}~{:+}", "AddRelative", offset, amount)
             }
-            Self::AddVector { stride, vector } => {
-                write!(f, "{:16}{}~{:?}", "AddVector", stride, vector)
+            Self::AddVectorMove { stride, vector } => {
+                write!(f, "{:16}{}~{:?}", "AddVectorMove", stride, vector)
             }
             Self::MoveRightToZero { increment, stride } => {
                 write!(f, "{:16}{:+}>{}", "MoveToZero", increment, stride)
