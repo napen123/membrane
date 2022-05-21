@@ -11,6 +11,7 @@
 *.rs   text diff=rust
 *.toml text diff=toml
 
+Cargo.toml text
 Cargo.lock text
 
 # Graphics
