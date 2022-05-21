@@ -14,15 +14,14 @@ mod optimizer;
 mod parser;
 
 fn main() {
-    let mut instructions = parser::parse_file("examples/numwarp.bf").unwrap();
+    let mut instructions = parser::parse_file("examples/mandelbrot.bf").unwrap();
     let input = [
         '2' as u8, '5' as u8, '9' as u8, '7' as u8, // ' ' as u8, '\n' as u8,
     ];
 
     optimizer::optimize(&mut instructions);
 
-    lister::create_listing(&instructions, "numwarp.lst").unwrap();
-    //compiler::compile_to_c(&instructions, "numwarp.c").unwrap();
+    lister::create_listing(&instructions, "mandelbrot.lst").unwrap();
 
     let start_time = std::time::Instant::now();
     interpreter::interpret(&instructions, &input);

@@ -8,9 +8,7 @@ use std::mem;
 
 use crate::Instruction;
 
-// 318
-// 311
-// 307
+// 2780
 pub fn optimize(instructions: &mut Vec<Instruction>) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
