@@ -23,6 +23,20 @@ pub enum Instruction {
     MoveLeftToZero { increment: i8, stride: usize },
 }
 
+impl Instruction {
+    #[inline]
+    pub const fn is_stable(&self) -> bool {
+        match self {
+            Self::Add(_)
+            | Self::Write(_)
+            | Self::Read(_)
+            | Self::SetAbsolute(_)
+            | Self::AddRelative { .. } => true,
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

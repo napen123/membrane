@@ -10,6 +10,7 @@ use crate::Instruction;
 
 // 2780
 // 2736
+// 309
 pub fn optimize(instructions: &mut Vec<Instruction>) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
@@ -402,7 +403,7 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 offset: offset2,
                 amount: amount2,
             }] => {
-                if *offset1 == *offset2 {
+                if *offset1 == *offset2 && inst.is_stable() {
                     matched = true;
                     buffer.extend_from_slice(&[
                         Instruction::AddRelative {
