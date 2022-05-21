@@ -229,6 +229,22 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector: *vector,
                 });
             }
+            [Instruction::AddRelative { offset, amount }, Instruction::AddVector { stride, vector }] =>
+            {
+                let offset = *offset;
+
+                if offset >= 0 && offset < 4 {
+                    matched = true;
+
+                    let mut vector = *vector;
+                    vector[offset as usize] = vector[offset as usize].wrapping_add(*amount);
+
+                    buffer.push(Instruction::AddVector {
+                        stride: *stride,
+                        vector,
+                    });
+                }
+            }
             _ => {}
         }
 
