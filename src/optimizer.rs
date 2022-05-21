@@ -104,12 +104,33 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
 
                     buffer.push(Instruction::SetAbsolute(final_value));
                 }
-                inst @ Instruction::AddRelative { offset, amount } => {
-                    if amount != 0 {
-                        if offset != 0 {
-                            buffer.push(inst);
+                Instruction::AddRelative {
+                    offset,
+                    amount: start_amount,
+                } => {
+                    let mut total_amount = start_amount;
+
+                    while let Some(Instruction::AddRelative {
+                        offset: next_offset,
+                        amount: next_amount,
+                    }) = iterator.peek()
+                    {
+                        if offset == *next_offset {
+                            total_amount = total_amount.wrapping_add(*next_amount);
+                            iterator.next();
                         } else {
-                            buffer.push(Instruction::Add(amount));
+                            break;
+                        }
+                    }
+
+                    if total_amount != 0 {
+                        if offset != 0 {
+                            buffer.push(Instruction::AddRelative {
+                                offset,
+                                amount: total_amount,
+                            });
+                        } else {
+                            buffer.push(Instruction::Add(total_amount));
                         }
                     }
                 }
@@ -372,6 +393,24 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                         increment: 0,
                         stride: stride.unsigned_abs(),
                     });
+                }
+            }
+            [Instruction::AddRelative {
+                offset: offset1,
+                amount: amount1,
+            }, inst @ _, Instruction::AddRelative {
+                offset: offset2,
+                amount: amount2,
+            }] => {
+                if *offset1 == *offset2 {
+                    matched = true;
+                    buffer.extend_from_slice(&[
+                        Instruction::AddRelative {
+                            offset: *offset1,
+                            amount: *amount1 + *amount2,
+                        },
+                        *inst,
+                    ]);
                 }
             }
             _ => {}
