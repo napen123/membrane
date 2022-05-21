@@ -1,0 +1,29 @@
+# General
+* text=auto
+
+*.md  text diff=markdown
+*.txt text
+
+# Brainfuck
+*.bf   text
+
+# Rust
+*.rs   text diff=rust
+*.toml text diff=toml
+
+Cargo.lock text
+
+# Graphics
+*.svg text
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+
+# Preserve
+*.patch -text
+
+# Exclude
+.gitattributes export-ignore
+.gitignore     export-ignore
+.gitkeep       export-ignore
