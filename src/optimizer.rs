@@ -14,27 +14,30 @@ use crate::Instruction;
 pub fn optimize(instructions: &mut Vec<Instruction>) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
-    let start_count = instructions.len();
-    println!("INIT: {}", start_count);
+    let raw_count = instructions.len();
+    println!("INIT: {}", raw_count);
 
-    let mut previous_instruction_count = instructions.len() + 1;
+    loop {
+        let start_instruction_count = instructions.len();
+        {
+            squash_and_clean(instructions, &mut buffer);
 
-    while instructions.len() < previous_instruction_count {
-        previous_instruction_count = instructions.len();
+            substitute_patterns_4(instructions, &mut buffer);
+            substitute_patterns_3(instructions, &mut buffer);
+            substitute_patterns_2(instructions, &mut buffer);
+        }
+        let end_instruction_count = instructions.len();
 
-        squash_and_clean(instructions, &mut buffer);
-
-        substitute_patterns_4(instructions, &mut buffer);
-        substitute_patterns_3(instructions, &mut buffer);
-        substitute_patterns_2(instructions, &mut buffer);
-
-        let post_pass_count = instructions.len();
         println!(
             "PASS: {} ({:.2}% -- {})",
-            post_pass_count,
-            (post_pass_count as f32) / (start_count as f32),
-            previous_instruction_count - post_pass_count
+            end_instruction_count,
+            (end_instruction_count as f32) / (raw_count as f32),
+            start_instruction_count - end_instruction_count
         );
+
+        if end_instruction_count >= start_instruction_count {
+            break;
+        }
     }
 
     fix_loops(instructions);
