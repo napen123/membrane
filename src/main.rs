@@ -4,6 +4,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+use std::time::Instant;
+
 use clap::Parser;
 
 mod compiler;
@@ -39,10 +41,18 @@ struct Args {
 
     #[clap(
         short,
-        long = "stack",
-        help = "The stack size to use while optimizing, interpreting, and compiling. Use zero (0) for a right-infinite stack."
+        long,
+        help = "Buffer the interpreter's output instead of flushing immediately. This can improve the performance of programs with frequent writes, potentially at the cost of user interactivity."
     )]
-    stack_size: usize,
+    buffered: bool,
+
+    #[clap(
+        short,
+        long = "tape",
+        help = "The tape size to use while optimizing, interpreting, and compiling. Zero (0) corresponds to a right-infinite tape, and positive values correspond to a finite, wrapping tape.",
+        default_value_t = 0
+    )]
+    tape_size: usize,
 
     #[clap(
         short,
@@ -94,16 +104,23 @@ fn main() {
     }
 
     if !args.partial {
-        // TODO: stack size with stack_size.
-        // TODO: input source with read_file.
-        // TODO: output source with write_file.
+        // TODO: Customizable input source with read_file.
+        // TODO: Customizable output source with write_file.
+        // TODO: Take the buffer flag into account.
 
-        if args.verbose {
-            let start_time = std::time::Instant::now();
-            interpreter::interpret(&instructions, &[]);
-            println!("Execution took {} ms.", start_time.elapsed().as_millis());
+        let tape_size = if args.tape_size == 0 {
+            interpreter::TapeSize::Infinite
         } else {
-            interpreter::interpret(&instructions, &[]);
+            interpreter::TapeSize::Finite(args.tape_size)
+        };
+
+        let start_time = args.verbose.then(Instant::now);
+
+        interpreter::interpret(&instructions, &[], tape_size);
+
+        if let Some(time) = start_time {
+            let elapsed_ms = time.elapsed().as_millis();
+            println!("Execution took {} ms.", elapsed_ms);
         }
     }
 }

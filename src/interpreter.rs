@@ -8,11 +8,148 @@ use std::iter;
 
 use crate::instruction::Instruction;
 
+const VECTOR_SIZE: usize = 4;
 const STANDARD_TAPE_SIZE: usize = 30_000;
 
-pub fn interpret(instructions: &[Instruction], input: &[u8]) {
-    let mut head = 0;
-    let mut tape = vec![0u8; STANDARD_TAPE_SIZE];
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum TapeSize {
+    Finite(usize),
+    Infinite,
+}
+
+struct Memory {
+    head: usize,
+    tape: Vec<u8>,
+    size: TapeSize,
+}
+
+impl Memory {
+    fn new(size: TapeSize) -> Self {
+        let length = if let TapeSize::Finite(tape_size) = size {
+            tape_size
+        } else {
+            STANDARD_TAPE_SIZE
+        };
+
+        Self {
+            head: 0,
+            tape: vec![0; length],
+            size,
+        }
+    }
+
+    fn move_head(&mut self, amount: isize) -> Result<(), ()> {
+        match self.size {
+            TapeSize::Finite(tape_size) => {
+                self.head = ((self.head as isize + amount) % tape_size as isize) as usize;
+                Ok(())
+            }
+            TapeSize::Infinite => {
+                let new_head = self.head as isize + amount;
+
+                if new_head >= 0 {
+                    self.head = new_head as usize;
+                    Ok(())
+                } else {
+                    Err(())
+                }
+            }
+        }
+    }
+
+    fn move_head_right(&mut self, amount: usize) {
+        match self.size {
+            TapeSize::Finite(tape_size) => {
+                self.head = (self.head + amount) % tape_size;
+            }
+            TapeSize::Infinite => {
+                self.head += amount;
+            }
+        }
+    }
+
+    fn move_head_left(&mut self, amount: usize) -> Result<(), ()> {
+        match self.size {
+            TapeSize::Finite(tape_size) => {
+                self.head = ((self.head as isize + amount as isize) % tape_size as isize) as usize;
+                Ok(())
+            }
+            TapeSize::Infinite => {
+                if amount <= self.head {
+                    self.head -= amount;
+                    Ok(())
+                } else {
+                    Err(())
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn current_cell_value(&self) -> u8 {
+        self.get_cell_value(self.head)
+    }
+
+    #[inline]
+    fn current_cell_mut(&mut self) -> &mut u8 {
+        self.get_cell_mut(self.head)
+    }
+
+    fn current_cell_vector(&mut self) -> [usize; VECTOR_SIZE] {
+        match self.size {
+            TapeSize::Finite(tape_size) => {
+                let head0 = self.head;
+                let head1 = (self.head + 1) % tape_size;
+                let head2 = (self.head + 2) % tape_size;
+                let head3 = (self.head + 3) % tape_size;
+                [head0, head1, head2, head3]
+            }
+            TapeSize::Infinite => {
+                if self.head + VECTOR_SIZE >= self.tape.len() {
+                    self.tape.extend(iter::repeat(0).take(VECTOR_SIZE));
+                }
+
+                let head0 = self.head;
+                let head1 = self.head + 1;
+                let head2 = self.head + 2;
+                let head3 = self.head + 3;
+                [head0, head1, head2, head3]
+            }
+        }
+    }
+
+    fn get_cell_value(&self, index: usize) -> u8 {
+        match self.size {
+            TapeSize::Finite(tape_size) => {
+                let wrapped_index = index % tape_size;
+                unsafe { *self.tape.get_unchecked(wrapped_index) }
+            }
+            TapeSize::Infinite => self.tape.get(index).copied().unwrap_or_default(),
+        }
+    }
+
+    fn get_cell_mut(&mut self, index: usize) -> &mut u8 {
+        match self.size {
+            TapeSize::Finite(tape_size) => {
+                let wrapped_index = index % tape_size;
+                unsafe { self.tape.get_unchecked_mut(wrapped_index) }
+            }
+            TapeSize::Infinite => {
+                let tape_size = self.tape.len();
+
+                if index >= tape_size {
+                    self.tape
+                        .extend(iter::repeat(0).take(index + 1 - tape_size));
+                }
+
+                unsafe { self.tape.get_unchecked_mut(index) }
+            }
+        }
+    }
+}
+
+pub fn interpret(instructions: &[Instruction], input: &[u8], tape_size: TapeSize) {
+    let mut memory = Memory::new(tape_size);
 
     let mut input_counter = 0;
     let mut program_counter = 0;
@@ -22,127 +159,107 @@ pub fn interpret(instructions: &[Instruction], input: &[u8]) {
 
         match instruction {
             Instruction::Add(amount) => {
-                if let Some(cell) = tape.get_mut(head) {
-                    *cell = (*cell as i8).wrapping_add(*amount) as u8;
-                } else {
-                    tape.extend(iter::repeat(0).take(head + 1 - tape.len()));
-                    tape[head] = *amount as u8;
-                }
+                let cell = memory.current_cell_mut();
+                *cell = (*cell as i8).wrapping_add(*amount) as u8;
             }
-            Instruction::Move(amount) => {
-                if *amount >= 0 || amount.unsigned_abs() <= program_counter {
-                    head = (head as isize).wrapping_add(*amount) as usize;
-                } else {
+            Instruction::Move(amount) => match memory.move_head(*amount) {
+                Ok(_) => {}
+                Err(_) => {
+                    // TODO: Throw an error here; the tape was moved out of bounds.
                     return;
                 }
-            }
+            },
             Instruction::Write(amount) => {
-                if let Some(cell) = tape.get(head) {
-                    let c = *cell as char;
+                let cell = memory.current_cell_value();
+                let character = cell as char;
 
-                    for _ in 0..*amount {
-                        print!("{}", c);
-                    }
+                for _ in 0..*amount {
+                    print!("{}", character);
                 }
             }
             Instruction::Read(amount) => {
                 input_counter += *amount;
 
+                let cell = memory.current_cell_mut();
                 let input = input.get(input_counter - 1).copied().unwrap_or_default();
 
-                if let Some(cell) = tape.get_mut(head) {
-                    *cell = input;
-                } else {
-                    tape.extend(iter::repeat(0).take(head + 1 - tape.len()));
-                    tape[head] = input;
-                }
+                *cell = input;
             }
             Instruction::JumpIfZero { location } => {
-                if let Some(cell) = tape.get(head) {
-                    if *cell == 0 {
-                        program_counter = *location;
-                    }
+                let cell = memory.current_cell_value();
+
+                if cell == 0 {
+                    program_counter = *location;
                 }
             }
             Instruction::JumpIfNotZero { location } => {
-                if let Some(cell) = tape.get(head) {
-                    if *cell != 0 {
-                        program_counter = *location;
-                    }
+                let cell = memory.current_cell_value();
+
+                if cell != 0 {
+                    program_counter = *location;
                 }
             }
 
             Instruction::SetAbsolute(value) => {
-                if let Some(cell) = tape.get_mut(head) {
-                    *cell = *value as u8;
-                } else {
-                    tape.extend(iter::repeat(0).take(head + 1 - tape.len()));
-                    tape[head] = *value as u8;
-                }
+                let cell = memory.current_cell_mut();
+                *cell = *value as u8;
             }
             Instruction::AddRelative { offset, amount } => {
-                let abs_offset = offset.unsigned_abs();
+                let head = memory.head as isize;
+                let index = head + *offset;
 
-                let index = if *offset >= 0 {
-                    head + abs_offset
-                } else if abs_offset <= head {
-                    head - abs_offset
-                } else {
-                    return;
-                };
-
-                if let Some(cell) = tape.get_mut(index) {
+                if index >= 0 {
+                    let cell = memory.get_cell_mut(index as usize);
                     *cell = (*cell as i8).wrapping_add(*amount) as u8;
                 } else {
-                    tape.extend(iter::repeat(0).take(head + 1 - tape.len()));
-                    tape[index] = *amount as u8;
-                }
-            }
-            Instruction::AddVectorMove { stride, vector } => {
-                if let Some(cell) = tape.get_mut(head..head + 4) {
-                    cell[0] = (cell[0] as i8).wrapping_add(vector[0]) as u8;
-                    cell[1] = (cell[1] as i8).wrapping_add(vector[1]) as u8;
-                    cell[2] = (cell[2] as i8).wrapping_add(vector[2]) as u8;
-                    cell[3] = (cell[3] as i8).wrapping_add(vector[3]) as u8;
-                } else {
-                    tape.extend(iter::repeat(0).take(head + 4 + 1 - tape.len()));
-                    tape[head] = vector[0] as u8;
-                    tape[head + 1] = vector[1] as u8;
-                    tape[head + 2] = vector[2] as u8;
-                    tape[head + 3] = vector[3] as u8;
-                }
-
-                let abs_stride = stride.unsigned_abs();
-
-                if *stride >= 0 {
-                    head += abs_stride;
-                } else if abs_stride <= head {
-                    head -= abs_stride;
-                } else {
+                    // TODO: Throw an error here; tried to add to a negative index.
                     return;
                 }
             }
-            Instruction::MoveRightToZero { increment, stride } => {
-                while let Some(value) = tape.get_mut(head) {
-                    if *value != 0 {
-                        *value = (*value as i8).wrapping_add(*increment) as u8;
-                        head += stride;
-                    } else {
-                        break;
+            Instruction::AddVectorMove {
+                stride,
+                vector: amount,
+            } => {
+                let vector = memory.current_cell_vector();
+
+                unsafe {
+                    for i in 0..VECTOR_SIZE {
+                        let cell = memory.tape.get_unchecked_mut(vector[i]);
+                        *cell = (*cell as i8).wrapping_add(amount[i]) as u8;
+                    }
+                }
+
+                match memory.move_head(*stride) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        // TODO: Throw an error here; the tape was moved out of bounds.
+                        return;
                     }
                 }
             }
+            Instruction::MoveRightToZero { increment, stride } => {
+                let mut cell = memory.current_cell_mut();
+
+                while *cell != 0 {
+                    *cell = (*cell as i8).wrapping_add(*increment) as u8;
+                    memory.move_head_right(*stride);
+                    cell = memory.current_cell_mut();
+                }
+            }
             Instruction::MoveLeftToZero { increment, stride } => {
-                while let Some(value) = tape.get_mut(head) {
-                    if *value != 0 {
-                        if head >= *stride {
-                            *value = (*value as i8).wrapping_add(*increment) as u8;
-                            head -= stride;
-                        } else {
+                let mut cell = memory.current_cell_mut();
+
+                while *cell != 0 {
+                    *cell = (*cell as i8).wrapping_add(*increment) as u8;
+
+                    match memory.move_head_left(*stride) {
+                        Ok(_) => {
+                            cell = memory.current_cell_mut();
+                        }
+                        Err(_) => {
+                            // TODO: Throw an error here; the tape was moved out of bounds.
                             return;
                         }
-                    } else {
-                        break;
                     }
                 }
             }
