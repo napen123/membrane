@@ -6,11 +6,12 @@
 
 use std::fs::File;
 use std::io::{BufWriter, Result as IOResult, Write};
+use std::path::Path;
 
-use crate::Instruction;
+use crate::instruction::Instruction;
 
-pub fn create_listing(instructions: &[Instruction], filename: &str) -> IOResult<()> {
-    let file = File::create(filename)?;
+pub fn create_listing<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> IOResult<()> {
+    let file = File::create(path)?;
 
     if instructions.len() > 0 {
         let padding = log10(instructions.len()) + 1;

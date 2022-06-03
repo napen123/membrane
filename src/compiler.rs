@@ -6,13 +6,14 @@
 
 use std::fs::File;
 use std::io::{BufWriter, Result as IOResult, Write};
+use std::path::Path;
 
-use crate::Instruction;
+use crate::instruction::Instruction;
 
 // TODO: Output is broken -- segfault.
 // This is only an example at the moment; a rewrite is in order.
-pub fn compile_to_c(instructions: &[Instruction], filename: &str) -> IOResult<()> {
-    let file = File::create(filename)?;
+pub fn compile_to_c<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> IOResult<()> {
+    let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
 
     writeln!(writer, "#include <stdio.h>")?;

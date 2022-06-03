@@ -6,16 +6,19 @@
 
 use std::mem;
 
-use crate::Instruction;
+use crate::instruction::Instruction;
 
 // 2780
 // 2736
 // 309
-pub fn optimize(instructions: &mut Vec<Instruction>) {
+pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
     let raw_count = instructions.len();
-    println!("INIT: {}", raw_count);
+
+    if verbose {
+        println!("INIT: {} instruction(s)", raw_count);
+    }
 
     loop {
         let start_instruction_count = instructions.len();
@@ -28,12 +31,14 @@ pub fn optimize(instructions: &mut Vec<Instruction>) {
         }
         let end_instruction_count = instructions.len();
 
-        println!(
-            "PASS: {} ({:.2}% -- {})",
-            end_instruction_count,
-            (end_instruction_count as f32) / (raw_count as f32),
-            start_instruction_count - end_instruction_count
-        );
+        if verbose {
+            println!(
+                "PASS: {} instruction(s) [{:.2}% -- decreased by {} instruction(s)]",
+                end_instruction_count,
+                (end_instruction_count as f32) / (raw_count as f32),
+                start_instruction_count - end_instruction_count
+            );
+        }
 
         if end_instruction_count >= start_instruction_count {
             break;

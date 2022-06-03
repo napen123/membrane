@@ -6,7 +6,7 @@
 
 use std::iter;
 
-use crate::Instruction;
+use crate::instruction::Instruction;
 
 const STANDARD_TAPE_SIZE: usize = 30_000;
 

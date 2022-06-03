@@ -2,5 +2,7 @@
 name = "membrane"
 version = "0.1.0"
 edition = "2021"
+description = "An optimizing Brainfuck interpreter and compiler."
 
 [dependencies]
+clap = { version = "3.1.18", features = ["derive"] }
