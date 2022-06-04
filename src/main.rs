@@ -10,14 +10,8 @@ use std::time::Instant;
 
 use clap::Parser;
 
-use interpreter::{InputSource, OutputSource, TapeSize};
-
-mod compiler;
-mod instruction;
-mod interpreter;
-mod lister;
-mod optimizer;
-mod parser;
+use membrane::interpreter::{InputSource, OutputSource, TapeSize};
+use membrane::*;
 
 #[derive(Parser)]
 #[clap(version, about, long_about = None)]

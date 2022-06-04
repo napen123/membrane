@@ -7,7 +7,7 @@
 use std::mem;
 
 use crate::instruction::Instruction;
-use crate::TapeSize;
+use crate::interpreter::TapeSize;
 
 // TODO: Improve optimizations by taking the tape size into account.
 pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>, _tape_size: TapeSize) {
@@ -28,8 +28,7 @@ pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>, _tape_size: 
             substitute_patterns_3(instructions, &mut buffer);
             substitute_patterns_2(instructions, &mut buffer);
 
-            fix_loops(instructions);
-            squash_loops(instructions, &mut buffer);
+            remove_spurious_loops(instructions, &mut buffer);
         }
         let end_instruction_count = instructions.len();
 
@@ -575,31 +574,49 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
     mem::swap(instructions, buffer);
 }
 
-fn squash_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instruction>) {
+fn remove_spurious_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instruction>) {
     {
         let mut cell_is_zero = true;
-        let mut iterator = instructions.drain(..).enumerate();
+        let mut iterator = instructions.drain(..);
 
-        'loop_squash: while let Some((index, instruction)) = iterator.next() {
+        'loop_squash: while let Some(instruction) = iterator.next() {
             match instruction {
-                Instruction::JumpIfZero { location } if cell_is_zero => {
-                    let mut remaining = location - index;
+                Instruction::JumpIfZero { .. } => {
+                    if cell_is_zero {
+                        let mut loop_depth = 0;
 
-                    while remaining > 0 {
-                        remaining -= 1;
-                        let _ = iterator.next();
+                        while let Some(next_instruction) = iterator.next() {
+                            match next_instruction {
+                                Instruction::JumpIfZero { .. } => {
+                                    loop_depth += 1;
+                                }
+                                Instruction::JumpIfNotZero { .. } => {
+                                    if loop_depth == 0 {
+                                        continue 'loop_squash;
+                                    } else {
+                                        loop_depth -= 1;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
                     }
-
-                    continue 'loop_squash;
                 }
+                Instruction::Write(_) => {}
                 Instruction::JumpIfNotZero { .. }
-                | Instruction::SetAbsolute(0)
                 | Instruction::MoveRightToZero { .. }
                 | Instruction::MoveLeftToZero { .. } => {
                     cell_is_zero = true;
                 }
-                _ => {
+                Instruction::Add(_)
+                | Instruction::Move(_)
+                | Instruction::Read(_)
+                | Instruction::AddRelative { .. }
+                | Instruction::AddVectorMove { .. } => {
                     cell_is_zero = false;
+                }
+                Instruction::SetAbsolute(value) => {
+                    cell_is_zero = value == 0;
                 }
             }
 
@@ -610,7 +627,6 @@ fn squash_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instructio
     mem::swap(instructions, buffer);
 }
 
-// TODO: We're allocating a new jump stack every call; the allocated jump stack should be saved/cached instead.
 fn fix_loops(instructions: &mut Vec<Instruction>) {
     let mut jump_stack = Vec::new();
 
