@@ -8,7 +8,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 use crate::instruction::Instruction;
-
 pub fn parse_file(filename: &str) -> Result<Vec<Instruction>, String> {
     let file = File::open(filename).map_err(|err| err.to_string())?;
 

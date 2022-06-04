@@ -7,11 +7,10 @@
 use std::mem;
 
 use crate::instruction::Instruction;
+use crate::TapeSize;
 
-// 2780
-// 2736
-// 309
-pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>) {
+// TODO: Improve optimizations by taking the tape size into account.
+pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>, _tape_size: TapeSize) {
     let mut buffer = Vec::with_capacity(instructions.len());
 
     let raw_count = instructions.len();
@@ -28,6 +27,9 @@ pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>) {
             substitute_patterns_4(instructions, &mut buffer);
             substitute_patterns_3(instructions, &mut buffer);
             substitute_patterns_2(instructions, &mut buffer);
+
+            fix_loops(instructions);
+            squash_loops(instructions, &mut buffer);
         }
         let end_instruction_count = instructions.len();
 
@@ -573,6 +575,42 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
     mem::swap(instructions, buffer);
 }
 
+fn squash_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instruction>) {
+    {
+        let mut cell_is_zero = true;
+        let mut iterator = instructions.drain(..).enumerate();
+
+        'loop_squash: while let Some((index, instruction)) = iterator.next() {
+            match instruction {
+                Instruction::JumpIfZero { location } if cell_is_zero => {
+                    let mut remaining = location - index;
+
+                    while remaining > 0 {
+                        remaining -= 1;
+                        let _ = iterator.next();
+                    }
+
+                    continue 'loop_squash;
+                }
+                Instruction::JumpIfNotZero { .. }
+                | Instruction::SetAbsolute(0)
+                | Instruction::MoveRightToZero { .. }
+                | Instruction::MoveLeftToZero { .. } => {
+                    cell_is_zero = true;
+                }
+                _ => {
+                    cell_is_zero = false;
+                }
+            }
+
+            buffer.push(instruction)
+        }
+    }
+
+    mem::swap(instructions, buffer);
+}
+
+// TODO: We're allocating a new jump stack every call; the allocated jump stack should be saved/cached instead.
 fn fix_loops(instructions: &mut Vec<Instruction>) {
     let mut jump_stack = Vec::new();
 

@@ -37,7 +37,7 @@ struct Args {
     partial: bool,
 
     #[clap(
-        short,
+        short = 'O',
         long,
         help = "Perform optimizations before interpreting, listing, and compiling."
     )]
@@ -102,8 +102,14 @@ fn main() {
 
     let mut instructions = parser::parse_file(&args.brainfuck_file).unwrap();
 
+    let tape_size = if args.tape_size == 0 {
+        TapeSize::Infinite
+    } else {
+        TapeSize::Finite(args.tape_size)
+    };
+
     if args.optimize {
-        optimizer::optimize(args.verbose, &mut instructions);
+        optimizer::optimize(args.verbose, &mut instructions, tape_size);
     }
 
     if let Some(listing_file) = args.listing_file {
@@ -115,16 +121,6 @@ fn main() {
     }
 
     if !args.partial {
-        // TODO: Customizable input source with read_file.
-        // TODO: Customizable output source with write_file.
-        // TODO: Take the buffer flag into account.
-
-        let tape_size = if args.tape_size == 0 {
-            TapeSize::Infinite
-        } else {
-            TapeSize::Finite(args.tape_size)
-        };
-
         let input = if let Some(filename) = args.read_file {
             let mut file = File::open(filename).unwrap();
 
@@ -133,7 +129,7 @@ fn main() {
             } else {
                 let mut contents = match file.seek(SeekFrom::End(0)) {
                     Ok(end) => match file.seek(SeekFrom::Start(0)) {
-                        Ok(start) => Vec::with_capacity((start - end) as usize),
+                        Ok(start) => Vec::with_capacity((end - start) as usize),
                         Err(_) => Vec::new(),
                     },
                     Err(_) => Vec::new(),
