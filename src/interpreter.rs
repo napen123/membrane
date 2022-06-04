@@ -4,17 +4,68 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Cursor, Read, Stdin, Stdout, Write};
 use std::iter;
 
 use crate::instruction::Instruction;
 
 const VECTOR_SIZE: usize = 4;
 const STANDARD_TAPE_SIZE: usize = 30_000;
+const DEFAULT_INPUT_BUFFER_SIZE: usize = 8;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum TapeSize {
     Finite(usize),
     Infinite,
+}
+
+pub enum InputSource {
+    Stdin(Stdin),
+    StdinBuffer(BufReader<Stdin>),
+    File(Cursor<Vec<u8>>),
+    FileBuffer(BufReader<File>),
+}
+
+impl Read for InputSource {
+    #[inline]
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Stdin(stdin) => stdin.read(buf),
+            Self::StdinBuffer(reader) => reader.read(buf),
+            Self::File(cursor) => cursor.read(buf),
+            Self::FileBuffer(reader) => reader.read(buf),
+        }
+    }
+}
+
+pub enum OutputSource {
+    Stdout(Stdout),
+    StdoutBuffer(BufWriter<Stdout>),
+    File(File),
+    FileBuffer(BufWriter<File>),
+}
+
+impl Write for OutputSource {
+    #[inline]
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Stdout(stdout) => stdout.write(buf),
+            Self::StdoutBuffer(writer) => writer.write(buf),
+            Self::File(file) => file.write(buf),
+            Self::FileBuffer(writer) => writer.write(buf),
+        }
+    }
+
+    #[inline]
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Self::Stdout(stdout) => stdout.flush(),
+            Self::StdoutBuffer(writer) => writer.flush(),
+            Self::File(file) => file.flush(),
+            Self::FileBuffer(writer) => writer.flush(),
+        }
+    }
 }
 
 struct Memory {
@@ -148,11 +199,16 @@ impl Memory {
     }
 }
 
-pub fn interpret(instructions: &[Instruction], input: &[u8], tape_size: TapeSize) {
+pub fn interpret(
+    instructions: &[Instruction],
+    mut input: InputSource,
+    mut output: OutputSource,
+    tape_size: TapeSize,
+) {
+    let mut program_counter = 0;
     let mut memory = Memory::new(tape_size);
 
-    let mut input_counter = 0;
-    let mut program_counter = 0;
+    let mut io_buffer = vec![0u8; DEFAULT_INPUT_BUFFER_SIZE];
 
     while let Some(instruction) = instructions.get(program_counter) {
         program_counter += 1;
@@ -170,20 +226,46 @@ pub fn interpret(instructions: &[Instruction], input: &[u8], tape_size: TapeSize
                 }
             },
             Instruction::Write(amount) => {
+                let amount = *amount;
                 let cell = memory.current_cell_value();
-                let character = cell as char;
 
-                for _ in 0..*amount {
-                    print!("{}", character);
+                if amount >= io_buffer.len() {
+                    io_buffer.extend(iter::repeat(0).take(amount + 1 - io_buffer.len()));
+                }
+
+                let slice = &mut io_buffer[0..amount];
+                slice.fill(cell);
+
+                let _lock = if let OutputSource::Stdout(ref stdout) = output {
+                    Some(stdout.lock())
+                } else {
+                    None
+                };
+
+                match output.write_all(slice) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        return;
+                    }
                 }
             }
             Instruction::Read(amount) => {
-                input_counter += *amount;
+                let amount = *amount;
 
-                let cell = memory.current_cell_mut();
-                let input = input.get(input_counter - 1).copied().unwrap_or_default();
+                if amount >= io_buffer.len() {
+                    io_buffer.extend(iter::repeat(0).take(amount + 1 - io_buffer.len()));
+                }
 
-                *cell = input;
+                match input.read_exact(&mut io_buffer[0..amount]) {
+                    Ok(_) => {
+                        let cell = memory.current_cell_mut();
+                        *cell = io_buffer[amount - 1];
+                    }
+                    Err(_) => {
+                        // TODO: Throw an error here; reading from input source failed.
+                        return;
+                    }
+                }
             }
             Instruction::JumpIfZero { location } => {
                 let cell = memory.current_cell_value();
@@ -263,6 +345,13 @@ pub fn interpret(instructions: &[Instruction], input: &[u8], tape_size: TapeSize
                     }
                 }
             }
+        }
+    }
+
+    match output.flush() {
+        Ok(_) => {}
+        Err(_) => {
+            // TODO: Throw an error here; we failed to flush output!
         }
     }
 }

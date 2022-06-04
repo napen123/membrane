@@ -4,9 +4,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter, Cursor, Read, Seek, SeekFrom};
 use std::time::Instant;
 
 use clap::Parser;
+
+use interpreter::{InputSource, OutputSource, TapeSize};
 
 mod compiler;
 mod instruction;
@@ -40,11 +44,18 @@ struct Args {
     optimize: bool,
 
     #[clap(
-        short,
+        short = 'R',
         long,
-        help = "Buffer the interpreter's output instead of flushing immediately. This can improve the performance of programs with frequent writes, potentially at the cost of user interactivity."
+        help = "Buffer reads instead of performing them on-demand. This can improve the performance of programs with frequent reads, potentially at the cost of user interactivity."
     )]
-    buffered: bool,
+    buffer_read: bool,
+
+    #[clap(
+        short = 'W',
+        long,
+        help = "Buffer writes instead of flushing them immediately. This can improve the performance of programs with frequent writes, potentially at the cost of user interactivity."
+    )]
+    buffer_write: bool,
 
     #[clap(
         short,
@@ -57,14 +68,14 @@ struct Args {
     #[clap(
         short,
         long = "read",
-        help = "Used to specify a file to use for program input in place of stdin."
+        help = "Used to specify a file to use for program input in place of stdin. If program input is set to buffered, then the specified file will be buffered/streamed; otherwise, the entire contents of the specified file will be read into memory."
     )]
     read_file: Option<String>,
 
     #[clap(
         short,
         long = "write",
-        help = "Used to specify a file to use for program output in place of stdout."
+        help = "Used to specify a file to use for program output in place of stdout. If program output is set to buffered, then the program's output will be buffered before being flushed into the specified file; otherwise, all writes will result in a flush."
     )]
     write_file: Option<String>,
 
@@ -109,14 +120,55 @@ fn main() {
         // TODO: Take the buffer flag into account.
 
         let tape_size = if args.tape_size == 0 {
-            interpreter::TapeSize::Infinite
+            TapeSize::Infinite
         } else {
-            interpreter::TapeSize::Finite(args.tape_size)
+            TapeSize::Finite(args.tape_size)
+        };
+
+        let input = if let Some(filename) = args.read_file {
+            let mut file = File::open(filename).unwrap();
+
+            if args.buffer_read {
+                InputSource::FileBuffer(BufReader::new(file))
+            } else {
+                let mut contents = match file.seek(SeekFrom::End(0)) {
+                    Ok(end) => match file.seek(SeekFrom::Start(0)) {
+                        Ok(start) => Vec::with_capacity((start - end) as usize),
+                        Err(_) => Vec::new(),
+                    },
+                    Err(_) => Vec::new(),
+                };
+
+                match file.read_to_end(&mut contents) {
+                    Ok(_) => InputSource::File(Cursor::new(contents)),
+                    Err(_) => {
+                        // TODO: Throw an error here; failed to read contents of file.
+                        return;
+                    }
+                }
+            }
+        } else if args.buffer_read {
+            InputSource::StdinBuffer(BufReader::new(io::stdin()))
+        } else {
+            InputSource::Stdin(io::stdin())
+        };
+
+        let output = if let Some(filename) = args.write_file {
+            let file = File::create(filename).unwrap();
+
+            if args.buffer_write {
+                OutputSource::FileBuffer(BufWriter::new(file))
+            } else {
+                OutputSource::File(file)
+            }
+        } else if args.buffer_write {
+            OutputSource::StdoutBuffer(BufWriter::new(io::stdout()))
+        } else {
+            OutputSource::Stdout(io::stdout())
         };
 
         let start_time = args.verbose.then(Instant::now);
-
-        interpreter::interpret(&instructions, &[], tape_size);
+        interpreter::interpret(&instructions, input, output, tape_size);
 
         if let Some(time) = start_time {
             let elapsed_ms = time.elapsed().as_millis();
