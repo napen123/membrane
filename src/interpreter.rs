@@ -282,7 +282,7 @@ pub fn interpret(
                 }
             }
 
-            Instruction::SetAbsolute(value) => {
+            Instruction::SetValue(value) => {
                 let cell = memory.current_cell_mut();
                 *cell = *value as u8;
             }

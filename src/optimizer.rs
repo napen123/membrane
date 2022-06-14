@@ -11,9 +11,8 @@ use crate::interpreter::TapeSize;
 
 // TODO: Improve optimizations by taking the tape size into account.
 pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>, _tape_size: TapeSize) {
-    let mut buffer = Vec::with_capacity(instructions.len());
-
     let raw_count = instructions.len();
+    let mut buffer = Vec::with_capacity(raw_count);
 
     if verbose {
         println!("INIT: {} instruction(s)", raw_count);
@@ -104,15 +103,15 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
                     }
                 }
 
-                Instruction::SetAbsolute(start_value) => {
+                Instruction::SetValue(start_value) => {
                     let mut final_value = start_value;
 
-                    while let Some(Instruction::SetAbsolute(next_value)) = iterator.peek() {
+                    while let Some(Instruction::SetValue(next_value)) = iterator.peek() {
                         final_value = *next_value;
                         iterator.next();
                     }
 
-                    buffer.push(Instruction::SetAbsolute(final_value));
+                    buffer.push(Instruction::SetValue(final_value));
                 }
                 Instruction::AddRelative {
                     offset,
@@ -201,9 +200,9 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
         matched = false;
 
         match window {
-            [Instruction::Add(_), Instruction::SetAbsolute(value)] => {
+            [Instruction::Add(_), Instruction::SetValue(value)] => {
                 matched = true;
-                buffer.push(Instruction::SetAbsolute(*value));
+                buffer.push(Instruction::SetValue(*value));
             }
             [Instruction::Move(stride), Instruction::Add(amount)] => {
                 let stride = *stride;
@@ -243,14 +242,14 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     ],
                 });
             }
-            [Instruction::SetAbsolute(value), Instruction::Add(amount)] => {
+            [Instruction::SetValue(value), Instruction::Add(amount)] => {
                 matched = true;
-                buffer.push(Instruction::SetAbsolute(value.wrapping_add(*amount)));
+                buffer.push(Instruction::SetValue(value.wrapping_add(*amount)));
             }
-            [Instruction::SetAbsolute(0), Instruction::MoveRightToZero { .. } | Instruction::MoveLeftToZero { .. }] =>
+            [Instruction::SetValue(0), Instruction::MoveRightToZero { .. } | Instruction::MoveLeftToZero { .. }] =>
             {
                 matched = true;
-                buffer.push(Instruction::SetAbsolute(0));
+                buffer.push(Instruction::SetValue(0));
             }
             [Instruction::AddRelative { offset, amount }, Instruction::Move(stride)] => {
                 let offset = *offset;
@@ -305,7 +304,7 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
             [first @ Instruction::MoveRightToZero { .. }
             | first @ Instruction::MoveLeftToZero { .. }, Instruction::Add(amount)] => {
                 matched = true;
-                buffer.extend_from_slice(&[*first, Instruction::SetAbsolute(*amount)]);
+                buffer.extend_from_slice(&[*first, Instruction::SetValue(*amount)]);
             }
             _ => {}
         }
@@ -386,7 +385,7 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
             [Instruction::JumpIfZero { .. }, Instruction::Add(1 | -1), Instruction::JumpIfNotZero { .. }] =>
             {
                 matched = true;
-                buffer.push(Instruction::SetAbsolute(0));
+                buffer.push(Instruction::SetValue(0));
             }
             [Instruction::JumpIfZero { .. }, Instruction::Move(stride), Instruction::JumpIfNotZero { .. }] =>
             {
@@ -615,7 +614,7 @@ fn remove_spurious_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 | Instruction::AddVectorMove { .. } => {
                     cell_is_zero = false;
                 }
-                Instruction::SetAbsolute(value) => {
+                Instruction::SetValue(value) => {
                     cell_is_zero = value == 0;
                 }
             }

@@ -46,7 +46,7 @@ fn simple_pattern_recognition() {
 
         optimize(false, &mut instructions, TapeSize::Infinite);
         assert_eq!(instructions.len(), 1);
-        assert_eq!(instructions[0], Instruction::SetAbsolute(0));
+        assert_eq!(instructions[0], Instruction::SetValue(0));
         instructions.clear();
     }
 
@@ -60,7 +60,7 @@ fn simple_pattern_recognition() {
 
         optimize(false, &mut instructions, TapeSize::Infinite);
         assert_eq!(instructions.len(), 1);
-        assert_eq!(instructions[0], Instruction::SetAbsolute(0));
+        assert_eq!(instructions[0], Instruction::SetValue(0));
         instructions.clear();
     }
 

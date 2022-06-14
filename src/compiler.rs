@@ -60,7 +60,7 @@ pub fn compile_to_c<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> IO
                 writeln!(writer, "    }}")?;
             }
 
-            Instruction::SetAbsolute(value) => {
+            Instruction::SetValue(value) => {
                 writeln!(writer, "    tape[head] = {};", value)?;
             }
             Instruction::AddRelative { offset, amount } => {

@@ -16,9 +16,11 @@ pub enum Instruction {
     JumpIfZero { location: usize },
     JumpIfNotZero { location: usize },
 
-    SetAbsolute(i8),
+    SetValue(i8),
+
     AddRelative { offset: isize, amount: i8 },
     AddVectorMove { stride: isize, vector: [i8; 4] },
+
     MoveRightToZero { increment: i8, stride: usize },
     MoveLeftToZero { increment: i8, stride: usize },
 }
@@ -30,7 +32,7 @@ impl Instruction {
             Self::Add(_)
             | Self::Write(_)
             | Self::Read(_)
-            | Self::SetAbsolute(_)
+            | Self::SetValue(_)
             | Self::AddRelative { .. } => true,
             _ => false,
         }
@@ -53,7 +55,7 @@ impl fmt::Display for Instruction {
             Self::JumpIfZero { location } => write!(f, "{:16}[{}", "JumpIfZero", location),
             Self::JumpIfNotZero { location } => write!(f, "{:16}]{}", "JumpIfNotZero", location),
 
-            Self::SetAbsolute(value) => write!(f, "{:16}{}", "SetAbsolute", value),
+            Self::SetValue(value) => write!(f, "{:16}{}", "SetAbsolute", value),
             Self::AddRelative { offset, amount } => {
                 write!(f, "{:16}{:+}~{:+}", "AddRelative", offset, amount)
             }
