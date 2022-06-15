@@ -9,6 +9,7 @@ use std::mem;
 use crate::instruction::Instruction;
 use crate::interpreter::TapeSize;
 
+// 2865
 // TODO: Improve optimizations by taking the tape size into account.
 pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>, _tape_size: TapeSize) {
     let raw_count = instructions.len();
@@ -402,7 +403,7 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 offset: offset2,
                 amount: amount2,
             }] => {
-                if *offset1 == *offset2 && inst.is_stable() {
+                if *offset1 == *offset2 && inst.preserves_tape_head() {
                     matched = true;
                     buffer.extend_from_slice(&[
                         Instruction::AddRelative {
@@ -528,7 +529,7 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 offset: offset2,
                 amount: amount2,
             }] => {
-                if *offset1 == *offset2 && inst1.is_stable() && inst2.is_stable() {
+                if *offset1 == *offset2 && inst1.is_add_friendly() && inst2.is_add_friendly() {
                     matched = true;
                     buffer.extend_from_slice(&[
                         Instruction::AddRelative {
