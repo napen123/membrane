@@ -298,24 +298,14 @@ pub fn interpret(
                     return;
                 }
             }
-            Instruction::AddVectorMove {
-                stride,
-                vector: amount,
-            } => {
+            Instruction::AddVector { vector: amount } => {
                 let vector = memory.current_cell_vector();
 
+                // TODO: SAFETY
                 unsafe {
                     for i in 0..VECTOR_SIZE {
                         let cell = memory.tape.get_unchecked_mut(vector[i]);
                         *cell = (*cell as i8).wrapping_add(amount[i]) as u8;
-                    }
-                }
-
-                match memory.move_head(*stride) {
-                    Ok(_) => {}
-                    Err(_) => {
-                        // TODO: Throw an error here; the tape was moved out of bounds.
-                        return;
                     }
                 }
             }

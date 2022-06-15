@@ -66,12 +66,11 @@ pub fn compile_to_c<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> IO
             Instruction::AddRelative { offset, amount } => {
                 writeln!(writer, "    tape[head + {}] += {};", offset, amount)?;
             }
-            Instruction::AddVectorMove { stride, vector } => {
+            Instruction::AddVector { vector } => {
                 writeln!(writer, "    tape[head] += {};", vector[0])?;
                 writeln!(writer, "    tape[head + 1] += {};", vector[1])?;
                 writeln!(writer, "    tape[head + 2] += {};", vector[2])?;
                 writeln!(writer, "    tape[head + 3] += {};", vector[3])?;
-                writeln!(writer, "    head += {};", *stride)?;
             }
             Instruction::MoveRightToZero { increment, stride } => {
                 writeln!(writer, "    while (tape[head] != 0) {{")?;

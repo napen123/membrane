@@ -19,7 +19,7 @@ pub enum Instruction {
     SetValue(i8),
 
     AddRelative { offset: isize, amount: i8 },
-    AddVectorMove { stride: isize, vector: [i8; 4] },
+    AddVector { vector: [i8; 4] },
 
     MoveRightToZero { increment: i8, stride: usize },
     MoveLeftToZero { increment: i8, stride: usize },
@@ -28,14 +28,15 @@ pub enum Instruction {
 impl Instruction {
     #[inline]
     pub const fn is_stable(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::Add(_)
-            | Self::Write(_)
-            | Self::Read(_)
-            | Self::SetValue(_)
-            | Self::AddRelative { .. } => true,
-            _ => false,
-        }
+                | Self::Write(_)
+                | Self::Read(_)
+                | Self::SetValue(_)
+                | Self::AddRelative { .. }
+                | Self::AddVector { .. }
+        )
     }
 }
 
@@ -59,8 +60,8 @@ impl fmt::Display for Instruction {
             Self::AddRelative { offset, amount } => {
                 write!(f, "{:16}{:+}~{:+}", "AddRelative", offset, amount)
             }
-            Self::AddVectorMove { stride, vector } => {
-                write!(f, "{:16}{}~{:?}", "AddVectorMove", stride, vector)
+            Self::AddVector { vector } => {
+                write!(f, "{:16}{:?}", "AddVectorMove", vector)
             }
             Self::MoveRightToZero { increment, stride } => {
                 write!(f, "{:16}{:+}>{}", "MoveToZero", increment, stride)
