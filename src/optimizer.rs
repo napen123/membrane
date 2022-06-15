@@ -89,8 +89,15 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
                     let mut accumulator = start_amount;
 
                     while let Some(Instruction::Write(next_amount)) = iterator.peek() {
-                        accumulator = accumulator.wrapping_add(*next_amount);
-                        iterator.next();
+                        match accumulator.checked_add(*next_amount) {
+                            Some(new_accumulator) => {
+                                accumulator = new_accumulator;
+                                iterator.next();
+                            }
+                            None => {
+                                break;
+                            }
+                        }
                     }
 
                     if accumulator != 0 {
@@ -101,8 +108,15 @@ fn squash_and_clean(instructions: &mut Vec<Instruction>, buffer: &mut Vec<Instru
                     let mut accumulator = start_amount;
 
                     while let Some(Instruction::Read(next_amount)) = iterator.peek() {
-                        accumulator = accumulator.wrapping_add(*next_amount);
-                        iterator.next();
+                        match accumulator.checked_add(*next_amount) {
+                            Some(new_accumulator) => {
+                                accumulator = new_accumulator;
+                                iterator.next();
+                            }
+                            None => {
+                                break;
+                            }
+                        }
                     }
 
                     if accumulator != 0 {
