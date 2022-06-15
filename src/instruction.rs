@@ -59,12 +59,12 @@ impl fmt::Display for Instruction {
             Self::JumpIfZero { location } => write!(f, "{:16}[{}", "JumpIfZero", location),
             Self::JumpIfNotZero { location } => write!(f, "{:16}]{}", "JumpIfNotZero", location),
 
-            Self::SetValue(value) => write!(f, "{:16}{}", "SetAbsolute", value),
+            Self::SetValue(value) => write!(f, "{:16}{}", "SetValue", value),
             Self::AddRelative { offset, amount } => {
                 write!(f, "{:16}{:+}~{:+}", "AddRelative", offset, amount)
             }
             Self::AddVector { vector } => {
-                write!(f, "{:16}{:?}", "AddVectorMove", vector)
+                write!(f, "{:16}{:?}", "AddVector", vector)
             }
             Self::MoveRightToZero { increment, stride } => {
                 write!(f, "{:16}{:+}>{}", "MoveToZero", increment, stride)
