@@ -9,7 +9,6 @@ use std::mem;
 use crate::instruction::Instruction;
 use crate::interpreter::TapeSize;
 
-// 2865
 // TODO: Improve optimizations by taking the tape size into account.
 pub fn optimize(verbose: bool, instructions: &mut Vec<Instruction>, _tape_size: TapeSize) {
     let raw_count = instructions.len();
@@ -248,9 +247,12 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     vector[offset as usize] = *b;
 
                     buffer.push(Instruction::AddVector { vector });
+                } else if offset == 0 {
+                    buffer.push(Instruction::Add(a.wrapping_add(*b)));
                 }
             }
-            [Instruction::Add(amount), Instruction::AddVector { vector }] => {
+            [Instruction::Add(amount), Instruction::AddVector { vector }]
+            | [Instruction::AddVector { vector }, Instruction::Add(amount)] => {
                 matched = true;
                 buffer.push(Instruction::AddVector {
                     vector: [
@@ -282,18 +284,15 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     buffer.push(Instruction::AddVector { vector });
                 }
             }
-            [Instruction::AddVector { vector }, Instruction::Add(amount)] => {
-                matched = true;
-
-                let mut vector = *vector;
-                vector[0] = vector[0].wrapping_add(*amount);
-
-                buffer.push(Instruction::AddVector { vector });
-            }
             [first @ Instruction::MoveRightToZero { .. }
             | first @ Instruction::MoveLeftToZero { .. }, Instruction::Add(amount)] => {
                 matched = true;
                 buffer.extend_from_slice(&[*first, Instruction::SetValue(*amount)]);
+            }
+            [first @ Instruction::MoveRightToZero { .. }
+            | first @ Instruction::MoveLeftToZero { .. }, Instruction::SetValue(0)] => {
+                matched = true;
+                buffer.push(*first);
             }
             _ => {}
         }
@@ -403,7 +402,7 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 offset: offset2,
                 amount: amount2,
             }] => {
-                if *offset1 == *offset2 && inst.preserves_tape_head() {
+                if *offset1 == *offset2 && inst.is_add_friendly() {
                     matched = true;
                     buffer.extend_from_slice(&[
                         Instruction::AddRelative {
@@ -520,6 +519,8 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                         increment: *increment,
                         stride: stride.unsigned_abs(),
                     });
+                } else if *increment == 1 || *increment == -1 {
+                    buffer.push(Instruction::SetValue(0));
                 }
             }
             [Instruction::AddRelative {
@@ -634,7 +635,7 @@ fn fix_loops(instructions: &mut Vec<Instruction>) {
                     *loop_start = *loop_end;
                     *loop_end = index;
                 } else {
-                    // TODO: ICE
+                    unreachable!()
                 }
             }
             _ => {}
