@@ -28,18 +28,15 @@ pub enum Instruction {
 impl Instruction {
     #[inline]
     pub const fn preserves_tape_head(&self) -> bool {
-        match self {
-            Self::Move(_) | Self::MoveRightToZero { .. } | Self::MoveLeftToZero { .. } => false,
-            _ => true,
-        }
+        !matches!(
+            self,
+            Self::Move(_) | Self::MoveRightToZero { .. } | Self::MoveLeftToZero { .. }
+        )
     }
 
     #[inline]
     pub const fn is_add_friendly(&self) -> bool {
-        match self {
-            Self::Read(_) | Self::SetValue(_) => false,
-            _ => self.preserves_tape_head(),
-        }
+        !matches!(self, Self::Read(_) | Self::SetValue(_))
     }
 }
 

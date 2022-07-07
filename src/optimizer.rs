@@ -4,6 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+use std::cmp::Ordering;
 use std::mem;
 
 use crate::instruction::Instruction;
@@ -275,7 +276,7 @@ fn substitute_patterns_2(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
             [Instruction::AddRelative { offset, amount }, Instruction::AddVector { vector }] => {
                 let offset = *offset;
 
-                if offset >= 0 && offset < 4 {
+                if (0..4).contains(&offset) {
                     matched = true;
 
                     let mut vector = *vector;
@@ -327,28 +328,32 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
             [Instruction::Add(a), Instruction::Move(stride), Instruction::Add(b)] => {
                 let stride = *stride;
 
-                if stride >= 0 && stride < 4 {
-                    matched = true;
+                match stride {
+                    -3..=-1 => {
+                        matched = true;
 
-                    let mut vector = [0; 4];
-                    vector[0] = *a;
-                    vector[stride as usize] = *b;
+                        let mut vector = [0; 4];
+                        vector[0] = *b;
+                        vector[-stride as usize] = *a;
 
-                    buffer.extend_from_slice(&[
-                        Instruction::AddVector { vector },
-                        Instruction::Move(stride),
-                    ]);
-                } else if stride < 0 && stride > -4 {
-                    matched = true;
+                        buffer.extend_from_slice(&[
+                            Instruction::Move(stride),
+                            Instruction::AddVector { vector },
+                        ]);
+                    }
+                    0..=3 => {
+                        matched = true;
 
-                    let mut vector = [0; 4];
-                    vector[0] = *b;
-                    vector[-stride as usize] = *a;
+                        let mut vector = [0; 4];
+                        vector[0] = *a;
+                        vector[stride as usize] = *b;
 
-                    buffer.extend_from_slice(&[
-                        Instruction::Move(stride),
-                        Instruction::AddVector { vector },
-                    ]);
+                        buffer.extend_from_slice(&[
+                            Instruction::AddVector { vector },
+                            Instruction::Move(stride),
+                        ]);
+                    }
+                    _ => {}
                 }
             }
             [Instruction::Move(move1), Instruction::Add(amount), Instruction::Move(move2)] => {
@@ -383,22 +388,26 @@ fn substitute_patterns_3(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                 matched = true;
                 let stride = *stride;
 
-                if stride > 0 {
-                    buffer.push(Instruction::MoveRightToZero {
-                        increment: 0,
-                        stride: stride as usize,
-                    });
-                } else if stride < 0 {
-                    buffer.push(Instruction::MoveLeftToZero {
-                        increment: 0,
-                        stride: stride.unsigned_abs(),
-                    });
+                match stride.cmp(&0) {
+                    Ordering::Greater => {
+                        buffer.push(Instruction::MoveRightToZero {
+                            increment: 0,
+                            stride: stride as usize,
+                        });
+                    }
+                    Ordering::Less => {
+                        buffer.push(Instruction::MoveLeftToZero {
+                            increment: 0,
+                            stride: stride.unsigned_abs(),
+                        });
+                    }
+                    _ => {}
                 }
             }
             [Instruction::AddRelative {
                 offset: offset1,
                 amount: amount1,
-            }, inst @ _, Instruction::AddRelative {
+            }, inst, Instruction::AddRelative {
                 offset: offset2,
                 amount: amount2,
             }] => {
@@ -526,7 +535,7 @@ fn substitute_patterns_4(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
             [Instruction::AddRelative {
                 offset: offset1,
                 amount: amount1,
-            }, inst1 @ _, inst2 @ _, Instruction::AddRelative {
+            }, inst1, inst2, Instruction::AddRelative {
                 offset: offset2,
                 amount: amount2,
             }] => {
@@ -577,7 +586,7 @@ fn remove_spurious_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
                     if cell_is_zero {
                         let mut loop_depth = 0;
 
-                        while let Some(next_instruction) = iterator.next() {
+                        for next_instruction in &mut iterator {
                             match next_instruction {
                                 Instruction::JumpIfZero { .. } => {
                                     loop_depth += 1;
@@ -619,7 +628,7 @@ fn remove_spurious_loops(instructions: &mut Vec<Instruction>, buffer: &mut Vec<I
     mem::swap(instructions, buffer);
 }
 
-fn fix_loops(instructions: &mut Vec<Instruction>) {
+fn fix_loops(instructions: &mut [Instruction]) {
     let mut jump_stack = Vec::new();
 
     for (index, instruction) in instructions.iter_mut().enumerate() {
