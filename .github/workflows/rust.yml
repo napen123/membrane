@@ -2,12 +2,14 @@ name: Rust
 
 on:
   push:
+    branches: [main]
     paths:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'src/**'
       - 'tests/**'
   pull_request:
+    branches: [main]
     paths:
       - 'Cargo.toml'
       - 'Cargo.lock'
