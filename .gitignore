@@ -1,17 +1,18 @@
 # General
 /ignore
-/out
 
+# Brainfuck
 *.lst
+*.bfc
 
 # Rust
-/debug
 /target
 
 **/*.rs.bk
 
 # Jetbrains
-.idea/**
+/.idea
+/out
 
 *.iws
 
