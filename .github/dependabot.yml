@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "A-Implement"
+      - "B-Chore"
+      - "C-Code"
+      - "Z-Robot"
