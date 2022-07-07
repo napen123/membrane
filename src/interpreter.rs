@@ -204,14 +204,17 @@ pub fn interpret(
     mut input: InputSource,
     mut output: OutputSource,
     tape_size: TapeSize,
-) {
+) -> usize {
     let mut program_counter = 0;
     let mut memory = Memory::new(tape_size);
 
     let mut io_buffer = vec![0u8; DEFAULT_INPUT_BUFFER_SIZE];
 
+    let mut instructions_executed = 0;
+
     while let Some(instruction) = instructions.get(program_counter) {
         program_counter += 1;
+        instructions_executed += 1;
 
         match instruction {
             Instruction::Add(amount) => {
@@ -222,7 +225,7 @@ pub fn interpret(
                 Ok(_) => {}
                 Err(_) => {
                     // TODO: Throw an error here; the tape was moved out of bounds.
-                    return;
+                    todo!()
                 }
             },
             Instruction::Write(amount) => {
@@ -245,7 +248,8 @@ pub fn interpret(
                 match output.write_all(slice) {
                     Ok(_) => {}
                     Err(_) => {
-                        return;
+                        // TODO: Throw an error here; failed to write all output.
+                        todo!()
                     }
                 }
             }
@@ -263,7 +267,7 @@ pub fn interpret(
                     }
                     Err(_) => {
                         // TODO: Throw an error here; reading from input source failed.
-                        return;
+                        todo!()
                     }
                 }
             }
@@ -295,7 +299,7 @@ pub fn interpret(
                     *cell = (*cell as i8).wrapping_add(*amount) as u8;
                 } else {
                     // TODO: Throw an error here; tried to add to a negative index.
-                    return;
+                    todo!()
                 }
             }
             Instruction::AddVector { vector: amount } => {
@@ -330,7 +334,7 @@ pub fn interpret(
                         }
                         Err(_) => {
                             // TODO: Throw an error here; the tape was moved out of bounds.
-                            return;
+                            todo!()
                         }
                     }
                 }
@@ -339,9 +343,10 @@ pub fn interpret(
     }
 
     match output.flush() {
-        Ok(_) => {}
+        Ok(_) => instructions_executed,
         Err(_) => {
             // TODO: Throw an error here; we failed to flush output!
+            todo!()
         }
     }
 }

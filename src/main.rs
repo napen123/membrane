@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Cursor, Read, Seek, SeekFrom};
 use std::time::Instant;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 use membrane::interpreter::{InputSource, OutputSource, TapeSize};
 use membrane::*;
@@ -19,9 +19,10 @@ struct Args {
     #[clap(
         short,
         long,
+        action = ArgAction::Count,
         help = "Print additional information during program execution."
     )]
-    verbose: bool,
+    verbose: u32,
 
     #[clap(
         short,
@@ -103,7 +104,7 @@ fn main() {
     };
 
     if args.optimize {
-        optimizer::optimize(args.verbose, &mut instructions, tape_size);
+        optimizer::optimize(args.verbose > 1, &mut instructions, tape_size);
     }
 
     if let Some(listing_file) = args.listing_file {
@@ -157,12 +158,17 @@ fn main() {
             OutputSource::Stdout(io::stdout())
         };
 
-        let start_time = args.verbose.then(Instant::now);
-        interpreter::interpret(&instructions, input, output, tape_size);
+        let start_time = (args.verbose > 0).then(Instant::now);
+        let instructions_executed = interpreter::interpret(&instructions, input, output, tape_size);
 
         if let Some(time) = start_time {
-            let elapsed_ms = time.elapsed().as_millis();
-            println!("Execution took {} ms.", elapsed_ms);
+            let elapsed = time.elapsed();
+            let elapsed_ms = elapsed.as_millis();
+            let inst_per_sec = (instructions_executed as f64) / elapsed.as_secs_f64();
+            println!(
+                "Execution took {} ms ({:} inst/sec).",
+                elapsed_ms, inst_per_sec as usize,
+            );
         }
     }
 }
