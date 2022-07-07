@@ -1,28 +1,37 @@
 # General
-* text=auto
+*          text=auto
 
-*.md  text diff=markdown
-*.txt text
+*.md       text diff=markdown
+*.txt      text
+*.adoc     text
 
 # Brainfuck
-*.bf   text
+*.bf       text
 
 # Rust
-*.rs   text diff=rust
-*.toml text diff=toml
+*.rs       text diff=rust
+*.toml     text diff=toml
 
 Cargo.toml text
 Cargo.lock text
 
-# Graphics
-*.svg text
+# Scripts
+*.sh       text eol=lf
+*.bash     text eol=lf
 
-*.png  binary
-*.jpg  binary
-*.jpeg binary
+*.bat      text eol=crlf
+*.ps1      text eol=crlf
+
+# Graphics
+*.svg      text
+
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.webp     binary
 
 # Preserve
-*.patch -text
+*.patch    -text
 
 # Exclude
 .gitattributes export-ignore
