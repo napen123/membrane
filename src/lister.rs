@@ -6,11 +6,10 @@
 
 use std::fs::File;
 use std::io::{BufWriter, Result as IOResult, Write};
-use std::path::Path;
 
 use crate::instruction::Instruction;
 
-pub fn create_listing<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> IOResult<()> {
+pub fn create_listing(instructions: &[Instruction], path: &str) -> IOResult<()> {
     let file = File::create(path)?;
 
     if instructions.is_empty() {

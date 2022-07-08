@@ -195,7 +195,7 @@ pub fn interpret(
     mut input: InputSource,
     mut output: OutputSource,
     tape_size: TapeSize,
-) -> usize {
+) -> Result<usize, String> {
     let mut program_counter = 0;
     let mut memory = Memory::new(tape_size);
 
@@ -235,9 +235,8 @@ pub fn interpret(
 
                 match output.write_all(slice) {
                     Ok(_) => {}
-                    Err(_) => {
-                        // TODO: Throw an error here; failed to write all output.
-                        todo!()
+                    Err(err) => {
+                        return Err(format!("Failed to write output: {}", err));
                     }
                 }
             }
@@ -258,8 +257,7 @@ pub fn interpret(
                             *cell = unsafe { *io_buffer.last().unwrap_unchecked() };
                         }
                         Err(_) => {
-                            // TODO: Throw an error here; reading from input source failed.
-                            todo!()
+                            return Err(format!("Failed to to read input: {}", err));
                         }
                     }
                 }
@@ -344,10 +342,9 @@ pub fn interpret(
     }
 
     match output.flush() {
-        Ok(_) => instructions_executed,
-        Err(_) => {
-            // TODO: Throw an error here; we failed to flush output!
-            todo!()
+        Ok(_) => Ok(instructions_executed),
+        Err(err) => {
+            format!("Failed to flush output: {}", err)
         }
     }
 }

@@ -107,7 +107,7 @@ enum Command {
     },
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     let args = Args::parse();
 
     let mut instructions = {
@@ -117,7 +117,7 @@ fn main() {
             Command::Compile { ref input_file, .. } => input_file,
         };
 
-        parser::parse_file(input_file).unwrap()
+        parser::parse_file(input_file)?
     };
 
     let tape_size = if args.tape_size == 0 {
@@ -139,7 +139,8 @@ fn main() {
             ..
         } => {
             let input = if let Some(filename) = read_file {
-                let mut file = File::open(filename).unwrap();
+                let mut file = File::open(&filename)
+                    .map_err(|err| format!("Failed to open input file: {} ({})", err, filename))?;
 
                 if buffer_read {
                     InputSource::FileBuffer(BufReader::new(file))
@@ -155,11 +156,10 @@ fn main() {
                     match file.read_to_end(&mut contents) {
                         Ok(_) => InputSource::File(Cursor::new(contents)),
                         Err(err) => {
-                            // TODO: Throw a proper error here; failed to read contents of file.
-                            panic!(
-                                "Failed to read entire contents of input source file: {}",
-                                err
-                            );
+                            return Err(format!(
+                                "Failed to read entire contents of input file: {} ({})",
+                                err, filename
+                            ));
                         }
                     }
                 }
@@ -170,7 +170,9 @@ fn main() {
             };
 
             let output = if let Some(filename) = write_file {
-                let file = File::create(filename).unwrap();
+                let file = File::create(&filename).map_err(|err| {
+                    format!("Failed to create output file: {} ({})", err, filename)
+                })?;
 
                 if buffer_write {
                     OutputSource::FileBuffer(BufWriter::new(file))
@@ -185,7 +187,7 @@ fn main() {
 
             let start_time = (args.verbose > 0).then(Instant::now);
             let instructions_executed =
-                interpreter::interpret(&instructions, input, output, tape_size);
+                interpreter::interpret(&instructions, input, output, tape_size)?;
 
             if args.verbose > 0 {
                 if let Some(time) = start_time {
@@ -198,18 +200,17 @@ fn main() {
                     );
                 }
             }
+
+            Ok(())
         }
-        Command::List { output_file, .. } => {
-            lister::create_listing(&instructions, output_file).unwrap();
-        }
+        Command::List { output_file, .. } => lister::create_listing(&instructions, &output_file)
+            .map_err(|err| format!("Failed to create listing file: {}", err)),
         Command::Compile {
             format,
             output_file,
             ..
-        } => {
-            format
-                .compile(&instructions, tape_size, output_file)
-                .unwrap();
-        }
+        } => format
+            .compile(&instructions, tape_size, output_file)
+            .map_err(|err| format!("Failed to compile file: {}", err)),
     }
 }
