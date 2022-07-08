@@ -13,7 +13,9 @@ use crate::instruction::Instruction;
 pub fn create_listing<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> IOResult<()> {
     let file = File::create(path)?;
 
-    if !instructions.is_empty() {
+    if instructions.is_empty() {
+        Ok(())
+    } else {
         let padding = log10(instructions.len()) + 1;
         let mut writer = BufWriter::new(file);
 
@@ -26,9 +28,9 @@ pub fn create_listing<P: AsRef<Path>>(instructions: &[Instruction], path: P) -> 
                 padding = padding
             )?;
         }
-    }
 
-    Ok(())
+        writer.flush()
+    }
 }
 
 // TODO: Remove this in favor of std's log10 once it gets stabilized.
