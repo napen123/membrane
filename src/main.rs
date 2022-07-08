@@ -35,7 +35,7 @@ struct Args {
     #[clap(
         short = 't',
         long = "tape",
-        help = "The tape size to use while optimizing, interpreting, or compiling. Zero (0) corresponds to a right-infinite tape, and positive values correspond to a finite, wrapping tape.",
+        help = "The tape size to use while optimizing, interpreting, or compiling. Zero (0) corresponds to a right-infinite, saturating tape, and positive values correspond to a finite, wrapping tape.",
         default_value_t = 0
     )]
     tape_size: usize,

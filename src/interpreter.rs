@@ -11,6 +11,7 @@ use std::iter;
 use crate::instruction::Instruction;
 
 const VECTOR_SIZE: usize = 4;
+const TAPE_GROW_AMOUNT: usize = 50;
 const STANDARD_TAPE_SIZE: usize = 30_000;
 const DEFAULT_INPUT_BUFFER_SIZE: usize = 8;
 
@@ -89,49 +90,32 @@ impl Memory {
         }
     }
 
-    fn move_head(&mut self, amount: isize) -> Result<(), ()> {
-        match self.size {
-            TapeSize::Finite(tape_size) => {
-                self.head = ((self.head as isize + amount) % tape_size as isize) as usize;
-                Ok(())
-            }
-            TapeSize::Infinite => {
-                let new_head = self.head as isize + amount;
-
-                if new_head >= 0 {
-                    self.head = new_head as usize;
-                    Ok(())
-                } else {
-                    Err(())
-                }
-            }
+    fn move_head(&mut self, amount: isize) {
+        if amount >= 0 {
+            self.move_head_right(amount as usize)
+        } else {
+            self.move_head_left(-amount as usize)
         }
     }
 
     fn move_head_right(&mut self, amount: usize) {
         match self.size {
             TapeSize::Finite(tape_size) => {
-                self.head = (self.head + amount) % tape_size;
+                self.head = self.head.wrapping_add(amount).wrapping_rem(tape_size);
             }
             TapeSize::Infinite => {
-                self.head += amount;
+                self.head = self.head.saturating_add(amount);
             }
         }
     }
 
-    fn move_head_left(&mut self, amount: usize) -> Result<(), ()> {
+    fn move_head_left(&mut self, amount: usize) {
         match self.size {
             TapeSize::Finite(tape_size) => {
-                self.head = ((self.head as isize + amount as isize) % tape_size as isize) as usize;
-                Ok(())
+                self.head = self.head.wrapping_sub(amount).wrapping_rem(tape_size);
             }
             TapeSize::Infinite => {
-                if amount <= self.head {
-                    self.head -= amount;
-                    Ok(())
-                } else {
-                    Err(())
-                }
+                self.head = self.head.saturating_sub(amount);
             }
         }
     }
@@ -150,20 +134,20 @@ impl Memory {
         match self.size {
             TapeSize::Finite(tape_size) => {
                 let head0 = self.head;
-                let head1 = (self.head + 1) % tape_size;
-                let head2 = (self.head + 2) % tape_size;
-                let head3 = (self.head + 3) % tape_size;
+                let head1 = self.head.wrapping_add(1).wrapping_rem(tape_size);
+                let head2 = self.head.wrapping_add(2).wrapping_rem(tape_size);
+                let head3 = self.head.wrapping_add(3).wrapping_rem(tape_size);
                 [head0, head1, head2, head3]
             }
             TapeSize::Infinite => {
                 if self.head + VECTOR_SIZE >= self.tape.len() {
-                    self.tape.extend(iter::repeat(0).take(VECTOR_SIZE));
+                    self.tape.extend(iter::repeat(0).take(TAPE_GROW_AMOUNT));
                 }
 
                 let head0 = self.head;
-                let head1 = self.head + 1;
-                let head2 = self.head + 2;
-                let head3 = self.head + 3;
+                let head1 = self.head.saturating_add(1);
+                let head2 = self.head.saturating_add(2);
+                let head3 = self.head.saturating_add(3);
                 [head0, head1, head2, head3]
             }
         }
@@ -172,7 +156,10 @@ impl Memory {
     fn get_cell_value(&self, index: usize) -> u8 {
         match self.size {
             TapeSize::Finite(tape_size) => {
-                let wrapped_index = index % tape_size;
+                let wrapped_index = index.wrapping_rem(tape_size);
+
+                // SAFETY: index is modded against tape_size,
+                // which should never exceed the tape's length.
                 unsafe { *self.tape.get_unchecked(wrapped_index) }
             }
             TapeSize::Infinite => self.tape.get(index).copied().unwrap_or_default(),
@@ -182,17 +169,21 @@ impl Memory {
     fn get_cell_mut(&mut self, index: usize) -> &mut u8 {
         match self.size {
             TapeSize::Finite(tape_size) => {
-                let wrapped_index = index % tape_size;
+                let wrapped_index = index.wrapping_rem(tape_size);
+
+                // SAFETY: index is modded against tape_size,
+                // which should never exceed the tape's length.
                 unsafe { self.tape.get_unchecked_mut(wrapped_index) }
             }
             TapeSize::Infinite => {
                 let tape_size = self.tape.len();
 
                 if index >= tape_size {
-                    self.tape
-                        .extend(iter::repeat(0).take(index + 1 - tape_size));
+                    let amount_to_grow = index.saturating_add(TAPE_GROW_AMOUNT) - tape_size;
+                    self.tape.extend(iter::repeat(0).take(amount_to_grow));
                 }
 
+                // SAFETY: The above check ensures index is in-bounds.
                 unsafe { self.tape.get_unchecked_mut(index) }
             }
         }
@@ -219,21 +210,18 @@ pub fn interpret(
         match instruction {
             Instruction::Add(amount) => {
                 let cell = memory.current_cell_mut();
-                *cell = (*cell as i8).wrapping_add(*amount) as u8;
+
+                // TODO: Use std's u8.wrapping_add_signed once its stabilized.
+                *cell = cell.wrapping_add(*amount as u8);
             }
-            Instruction::Move(amount) => match memory.move_head(*amount) {
-                Ok(_) => {}
-                Err(_) => {
-                    // TODO: Throw an error here; the tape was moved out of bounds.
-                    todo!()
-                }
-            },
+            Instruction::Move(amount) => memory.move_head(*amount),
             Instruction::Write(amount) => {
                 let amount = *amount;
                 let cell = memory.current_cell_value();
 
                 if amount >= io_buffer.len() {
-                    io_buffer.extend(iter::repeat(0).take(amount + 1 - io_buffer.len()));
+                    let amount_to_grow = amount + 1 - io_buffer.len();
+                    io_buffer.extend(iter::repeat(0).take(amount_to_grow));
                 }
 
                 let slice = &mut io_buffer[0..amount];
@@ -256,18 +244,23 @@ pub fn interpret(
             Instruction::Read(amount) => {
                 let amount = *amount;
 
-                if amount >= io_buffer.len() {
-                    io_buffer.extend(iter::repeat(0).take(amount + 1 - io_buffer.len()));
-                }
-
-                match input.read_exact(&mut io_buffer[0..amount]) {
-                    Ok(_) => {
-                        let cell = memory.current_cell_mut();
-                        *cell = io_buffer[amount - 1];
+                if amount > 0 {
+                    if amount >= io_buffer.len() {
+                        let amount_to_grow = amount + 1 - io_buffer.len();
+                        io_buffer.extend(iter::repeat(0).take(amount_to_grow));
                     }
-                    Err(_) => {
-                        // TODO: Throw an error here; reading from input source failed.
-                        todo!()
+
+                    match input.read_exact(&mut io_buffer[0..amount]) {
+                        Ok(_) => {
+                            let cell = memory.current_cell_mut();
+
+                            // SAFETY: Since amount > 0, there must be a last element.
+                            *cell = unsafe { *io_buffer.last().unwrap_unchecked() };
+                        }
+                        Err(_) => {
+                            // TODO: Throw an error here; reading from input source failed.
+                            todo!()
+                        }
                     }
                 }
             }
@@ -291,25 +284,39 @@ pub fn interpret(
                 *cell = *value as u8;
             }
             Instruction::AddRelative { offset, amount } => {
-                let head = memory.head as isize;
-                let index = head + *offset;
+                let offset = *offset;
 
-                if index >= 0 {
-                    let cell = memory.get_cell_mut(index as usize);
-                    *cell = (*cell as i8).wrapping_add(*amount) as u8;
-                } else {
-                    // TODO: Throw an error here; tried to add to a negative index.
-                    todo!()
-                }
+                let index = match tape_size {
+                    TapeSize::Finite(_) => {
+                        // TODO: Use std's usize.wrapping_add_signed once its stabilized.
+                        memory.head.wrapping_add(offset as usize)
+                    }
+                    TapeSize::Infinite => {
+                        if offset >= 0 {
+                            // TODO: Use std's usize.saturating_add_signed once its stabilized.
+                            memory.head.saturating_add(offset as usize)
+                        } else {
+                            // TODO: Use std's usize.saturating_sub_signed once its stabilized.
+                            memory.head.saturating_sub(-offset as usize)
+                        }
+                    }
+                };
+
+                let cell = memory.get_cell_mut(index);
+
+                // TODO: Use std's u8.wrapping_add_signed once its stabilized.
+                *cell = cell.wrapping_add(*amount as u8);
             }
             Instruction::AddVector { vector: amount } => {
                 let vector = memory.current_cell_vector();
 
-                // TODO: SAFETY
+                // SAFETY: current_cell_vector() ensures the returned indices are in-bounds.
                 unsafe {
                     for i in 0..VECTOR_SIZE {
                         let cell = memory.tape.get_unchecked_mut(vector[i]);
-                        *cell = (*cell as i8).wrapping_add(amount[i]) as u8;
+
+                        // TODO: Use std's u8.wrapping_add_signed once its stabilized.
+                        *cell = cell.wrapping_add(amount[i] as u8);
                     }
                 }
             }
@@ -317,7 +324,8 @@ pub fn interpret(
                 let mut cell = memory.current_cell_mut();
 
                 while *cell != 0 {
-                    *cell = (*cell as i8).wrapping_add(*increment) as u8;
+                    // TODO: Use std's u8.wrapping_add_signed once its stabilized.
+                    *cell = cell.wrapping_add(*increment as u8);
                     memory.move_head_right(*stride);
                     cell = memory.current_cell_mut();
                 }
@@ -326,17 +334,10 @@ pub fn interpret(
                 let mut cell = memory.current_cell_mut();
 
                 while *cell != 0 {
-                    *cell = (*cell as i8).wrapping_add(*increment) as u8;
-
-                    match memory.move_head_left(*stride) {
-                        Ok(_) => {
-                            cell = memory.current_cell_mut();
-                        }
-                        Err(_) => {
-                            // TODO: Throw an error here; the tape was moved out of bounds.
-                            todo!()
-                        }
-                    }
+                    // TODO: Use std's u8.wrapping_add_signed once its stabilized.
+                    *cell = cell.wrapping_add(*increment as u8);
+                    memory.move_head_left(*stride);
+                    cell = memory.current_cell_mut();
                 }
             }
         }
