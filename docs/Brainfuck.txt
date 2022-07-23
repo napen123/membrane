@@ -1,0 +1,19 @@
+Revision 0                                                      KINOSOFT
+                                                                    2022
+
+                               Brainfuck
+
+Abstract
+
+About This Document
+
+Copyright Notice
+
+Table of Contents
+
+1.  Introduction
+
+1.1.  Conventions and Terminology
+
+~.  References
+
