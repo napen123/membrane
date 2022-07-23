@@ -5,4 +5,4 @@ edition = "2021"
 description = "An optimizing Brainfuck interpreter and compiler."
 
 [dependencies]
-clap = { version = "3.2.8", features = ["derive"] }
+clap = { version = "3.2.12", features = ["derive"] }
